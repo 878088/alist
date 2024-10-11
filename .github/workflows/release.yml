@@ -1,8 +1,17 @@
 name: release
 
+# on:
+#   release:
+#     types: [ published ]
+
 on:
-  release:
-    types: [ published ]
+  repository_dispatch:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release'
+        required: true
+        default: 'latest'
 
 jobs:
   release:
@@ -13,12 +22,12 @@ jobs:
     name: Release
     runs-on: ${{ matrix.platform }}
     steps:
-      - name: Prerelease
-        uses: irongut/EditRelease@v1.2.0
-        with:
-          token: ${{ secrets.MY_TOKEN }}
-          id: ${{ github.event.release.id }}
-          prerelease: true
+      # - name: Prerelease
+      #   uses: irongut/EditRelease@v1.2.0
+      #   with:
+      #     token: ${{ secrets.MY_TOKEN }}
+      #     id: ${{ github.event.release.id }}
+      #     prerelease: true
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -41,11 +50,20 @@ jobs:
         run: |
           bash build.sh release
 
-      - name: Upload assets
-        uses: softprops/action-gh-release@v2
+      # - name: Upload assets
+      #   uses: softprops/action-gh-release@v1
+      #   with:
+      #     files: build/compress/*
+      #     prerelease: false
+
+      - name: Upload binary to GitHub Release
+        uses: svenstaro/upload-release-action@v2
         with:
-          files: build/compress/*
-          prerelease: false
+          repo_token: ${{ secrets.MY_TOKEN }}
+          file: build/compress/*
+          file_glob: true
+          overwrite: true
+          tag: "refs/tags/${{ github.event.inputs.tag }}"
 
   release_desktop:
     needs: release
@@ -62,8 +80,8 @@ jobs:
 
       - name: Add tag
         run: |
-          git config --local user.email "6668431@gmail.com"
-          git config --local user.name "878088"
+          git config --local user.email "bot@nn.ci"
+          git config --local user.name "IlaBot"
           version=$(wget -qO- -t1 -T2 "https://api.github.com/repos/alist-org/alist/releases/latest" | grep "tag_name" | head -n 1 | awk -F ":" '{print $2}' | sed 's/\"//g;s/,//g;s/ //g')
           git tag -a $version -m "release $version"
 
